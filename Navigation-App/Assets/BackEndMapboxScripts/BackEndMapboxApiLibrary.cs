@@ -37,6 +37,55 @@ namespace Navigation_App.Assets.BackEndMapboxScripts
             return getRouteResponse;
         }
 
+        public async Task<string> GetRoute(int profileNumber, string sourceAddress, string initialDestAddress, params string[] destAddresses) {
+            List<Coordinates> coordinates = new List<Coordinates>();
+            dynamic reverseGeocodingResponseSource = JsonConvert.DeserializeObject(await GetForwardGeocodedCoordinates(sourceAddress));
+            Coordinates sourceCoordinates = new Coordinates() {
+                Latitude = Convert.ToDouble(reverseGeocodingResponseSource.features[2].center[1]),
+                Longitude = Convert.ToDouble(reverseGeocodingResponseSource.features[2].center[0])
+            };
+            dynamic reverseGeocodingResponseInitDest = JsonConvert.DeserializeObject(await GetForwardGeocodedCoordinates(initialDestAddress));
+            Coordinates destCoordinatesInit = new Coordinates() {
+                Latitude = Convert.ToDouble(reverseGeocodingResponseInitDest.features[2].center[1]),
+                Longitude = Convert.ToDouble(reverseGeocodingResponseInitDest.features[2].center[0])
+            };
+            foreach(var address in destAddresses) {
+                dynamic reverseGeocodingResponse = JsonConvert.DeserializeObject(await GetForwardGeocodedCoordinates(address));
+                Coordinates destCoordinates = new Coordinates() {
+                Latitude = Convert.ToDouble(reverseGeocodingResponseInitDest.features[2].center[1]),
+                Longitude = Convert.ToDouble(reverseGeocodingResponseInitDest.features[2].center[0])
+                };
+                coordinates.Add(destCoordinates);
+            }
+            List<double> coordinatePairs = new List<double>();
+            for(int i = 0; i < coordinates.Count; i++) {
+                if(i > 1) {
+                    Coordinates currentCoordinates = coordinates[i];
+                    coordinatePairs.Add(currentCoordinates.Latitude);
+                    coordinatePairs.Add(currentCoordinates.Longitude);
+                }
+            }
+            double[] varargsArray = coordinatePairs.ToArray();
+            string getRouteResponse = await GetRoute(profileNumber, sourceCoordinates.Latitude, sourceCoordinates.Longitude, destCoordinatesInit.Latitude, destCoordinatesInit.Longitude, varargsArray);
+            return getRouteResponse;
+        }
+
+        public async Task<string> GetForwardGeocodedCoordinates(string placeName, int endpointType = 0) {
+            string endpoint = TranslateEndpointNumber(endpointType);
+            string getForwardGeocodedResponse = await GetForwardGeocodedCoordinatesTask(placeName, endpoint);
+            return getForwardGeocodedResponse;
+        }
+
+        public async Task<string> GetReverseGeocodedPlaceName(double xCoord, double yCoord, int endpointType = 0) {
+            string endpoint = TranslateEndpointNumber(endpointType);
+            Coordinates coordinates = new Coordinates() {
+                Latitude = xCoord,
+                Longitude = yCoord
+            };
+            string getReverseGeocodedPlaceName = await GetReverseGeocodedPlaceNameTask(coordinates, endpoint);
+            return getReverseGeocodedPlaceName;
+        }
+
         private string TranslateProfileNumber(int profileNumber) {
             switch(profileNumber) {
                 case 0: return "driving-traffic";
@@ -44,6 +93,14 @@ namespace Navigation_App.Assets.BackEndMapboxScripts
                 case 2: return "walking";
                 case 3: return "cycling";
                 default: throw new InvalidProfileNumberException("The profile number passed in was not between 0 and 3");
+            }
+        }
+
+        private string TranslateEndpointNumber(int endpointNumber) {
+            switch(endpointNumber) {
+                case 0: return "mapbox.places";
+                case 1: return "mapbox.places-permanent";
+                default: return "mapbox.places"; // No need to throw exception, just default to case 0.
             }
         }
 
@@ -68,6 +125,28 @@ namespace Navigation_App.Assets.BackEndMapboxScripts
                 var content = await routingClientResponse.Content.ReadAsStringAsync();
                 dynamic routingResponse = JsonConvert.DeserializeObject(content);
                 return Convert.ToString(routingResponse);
+            }
+            return "";
+        }
+
+        private async Task<string> GetForwardGeocodedCoordinatesTask(string placeName, string endpoint) {
+            HttpClient forwardGeocodingClient = new HttpClient();
+            var forwardGeocodingClientResponse = await forwardGeocodingClient.GetAsync($"{SystemConfiguration.GENERAL_BASE_API_URL}{SystemConfiguration.FORWARD_GEOCODING_API_BASE_URL}{endpoint}/{placeName}.json?{SystemConfiguration.TOKEN_REQUEST_PARAM}{SystemConfiguration.MAIN_TOKEN}");
+            if (forwardGeocodingClientResponse.StatusCode == HttpStatusCode.OK) {
+                var content = await forwardGeocodingClientResponse.Content.ReadAsStringAsync();
+                dynamic forwardGeocodingResponse = JsonConvert.DeserializeObject(content);
+                return Convert.ToString(forwardGeocodingResponse);
+            }
+            return "";
+        }
+
+        private async Task<string> GetReverseGeocodedPlaceNameTask(Coordinates coordinates, string endpoint) {
+            HttpClient reverseGeocodingClient = new HttpClient();
+            var reverseGeocodingClientResponse = await reverseGeocodingClient.GetAsync($"{SystemConfiguration.GENERAL_BASE_API_URL}{SystemConfiguration.FORWARD_GEOCODING_API_BASE_URL}{endpoint}/{coordinates.Longitude},{coordinates.Latitude}.json?{SystemConfiguration.TOKEN_REQUEST_PARAM}{SystemConfiguration.MAIN_TOKEN}");
+            if (reverseGeocodingClientResponse.StatusCode == HttpStatusCode.OK) {
+                var content = await reverseGeocodingClientResponse.Content.ReadAsStringAsync();
+                dynamic reverseGeocodingResponse = JsonConvert.DeserializeObject(content);
+                return Convert.ToString(reverseGeocodingResponse);
             }
             return "";
         }

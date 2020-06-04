@@ -15,5 +15,7 @@ namespace Navigation_App.Assets.BackEndMapboxScripts
         public const string MAIN_TOKEN = "sk.eyJ1IjoibWFwZW1vdXQ2OSIsImEiOiJja2FtOXh5MnUxYmhiMnFsNmMwNmxwbmFtIn0.AKofJ9yQWDqgrA2JsZyrIQ";
 
         public const string DIRECTIONS_API_BASE_URL = "directions/v5/mapbox/";
+
+        public const string FORWARD_GEOCODING_API_BASE_URL = "geocoding/v5/";
     }
 }
